@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor List</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body, html {
+            height: 100%;
+            color: #333;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand">Topic Prediction</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/homepage_admin">Predictor</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/approval_page">Approval</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/results">Results</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/spv_list_admin">Spv List</a>
+                </li>
+            </ul>
+            <form class="form-inline my-2 my-lg-0 ml-auto" action="/logout" method="post" onsubmit="return confirmLogout();">
+                <button class="btn btn-danger my-2 my-sm-0" type="submit">Logout</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mt-5">Supervisor List</h1>
+        <div class="d-flex justify-content-end mb-2">
+            <select id="sortOptions" class="custom-select w-auto">
+                <option value="default">Sort</option>
+                <option value="nameAsc">Name (A-Z)</option>
+                <option value="nameDesc">Name (Z-A)</option>
+                <option value="slotAsc">Slot (Ascending)</option>
+                <option value="slotDesc">Slot (Descending)</option>
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table class="table mt-4">
+                <thead>
+                    <tr>
+                        <th>Kode Dosen</th>
+                        <th>Nama Dosen</th>
+                        <th>Slot</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="supervisorTable">
+                    {% for row in rows %}
+                    <tr id="row-{{ row[0] }}">
+                        <td>{{ row[0] }}</td>
+                        <td>{{ row[1] }}</td>
+                        <td id="slot-{{ row[0] }}">{{ row[2] }}</td>
+                        <td id="actions-{{ row[0] }}">
+                            <button class="btn btn-warning btn-sm" onclick="showEditOptions('{{ row[0] }}')">Update</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="text-right mb-4">
+            <a href="/generate_supervisor_csv" class="btn btn-primary">Download CSV</a>
+        </div>
+
+        <br>
+        <br>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script>
+        function confirmLogout() {
+            return confirm('Do you want to log out?');
+        }
+
+        function showEditOptions(id) {
+            document.getElementById(`actions-${id}`).innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="changeSlot('${id}', 1)">+</button>
+                <button class="btn btn-danger btn-sm" onclick="changeSlot('${id}', -1)">-</button>
+                <button class="btn btn-primary btn-sm" onclick="updateSlot('${id}')">Update</button>
+                <button class="btn btn-secondary btn-sm" onclick="cancelEdit('${id}')">Cancel</button>
+            `;
+        }
+
+        function changeSlot(id, change) {
+            const slotElement = document.getElementById(`slot-${id}`);
+            let slotValue = parseInt(slotElement.innerText);
+            slotValue += change;
+            if (slotValue < 0) slotValue = 0; // Ensure slot value doesn't go negative
+            slotElement.innerText = slotValue;
+        }
+
+        function updateSlot(id) {
+            const slotValue = document.getElementById(`slot-${id}`).innerText;
+            $.ajax({
+                url: '/update_slot_admin',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: id, slot: slotValue }),
+                success: function(response) {
+                    if (response.status === 'success') {
+                        document.getElementById(`actions-${id}`).innerHTML = `
+                            <button class="btn btn-warning btn-sm" onclick="showEditOptions('${id}')">Update</button>
+                        `;
+                        alert('Slot updated successfully.');
+                    } else {
+                        alert('Error updating slot: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('An error occurred while updating slot: ' + xhr.responseText);
+                }
+            });
+        }
+
+        function cancelEdit(id) {
+            document.getElementById(`actions-${id}`).innerHTML = `
+                <button class="btn btn-warning btn-sm" onclick="showEditOptions('${id}')">Update</button>
+            `;
+        }
+
+        document.getElementById('sortOptions').addEventListener('change', function() {
+            sortTable(this.value);
+        });
+
+        function sortTable(option) {
+            var table = document.getElementById('supervisorTable');
+            var rows = Array.from(table.getElementsByTagName('tr'));
+
+            rows.sort(function(a, b) {
+                var nameA = a.cells[1].innerText.toUpperCase();
+                var nameB = b.cells[1].innerText.toUpperCase();
+                var slotA = parseInt(a.cells[2].innerText);
+                var slotB = parseInt(b.cells[2].innerText);
+
+                if (option === 'nameAsc') {
+                    return nameA.localeCompare(nameB);
+                } else if (option === 'nameDesc') {
+                    return nameB.localeCompare(nameA);
+                } else if (option === 'slotAsc') {
+                    return slotA - slotB;
+                } else if (option === 'slotDesc') {
+                    return slotB - slotA;
+                } else {
+                    return 0;
+                }
+            });
+
+            rows.forEach(function(row) {
+                table.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>

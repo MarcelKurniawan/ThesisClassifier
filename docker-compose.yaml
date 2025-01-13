@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=thesis_db
+      - DB_USER=postgres
+      - DB_PASSWORD=200403
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: thesis_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 200403
+    volumes:
+      - ./thesis_db.sql:/docker-entrypoint-initdb.d/thesis_db.sql
+    ports:
+      - "5432:5432"

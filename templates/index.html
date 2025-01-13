@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndoBERT Model Prediction</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .btn-active {
+            border: 2px solid #007bff;
+            color: #007bff;
+            background-color: #fff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 576px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            #dosen-buttons,
+            #slot-info-container,
+            #request-container,
+            #submit-container {
+                text-align: center;
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            textarea {
+                font-size: 1rem;
+            }
+
+            .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+
+            .navbar-nav {
+                text-align: center;
+            }
+
+            .nav-item {
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand">Topic Prediction</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/homepage">Predictor</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/result_status">My Status</a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="/supervisor_list">Spv List</a>
+                </li>
+            </ul>
+            <form class="form-inline my-2 my-lg-0 ml-auto" action="/logout" method="post" onsubmit="return confirmLogout();">
+                <button class="btn btn-danger my-2 my-sm-0" type="submit">Logout</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mt-5">Topic Recommendation</h1>
+        <form id="prediction-form" class="mt-4">
+            <div class="form-group">
+                <label for="title">Title:</label>
+                <textarea class="form-control" id="title" name="title" rows="2" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="abstract">Abstract:</label>
+                <textarea class="form-control" id="abstract" name="abstract" rows="4" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Predict</button>
+        </form>
+        <div id="result" class="mt-4"></div>
+        <div id="dosen-buttons" class="mt-4"></div>
+        <div id="slot-info-container" class="mt-4"></div>
+        <div id="request-container" class="mt-4 hidden">
+            <h4>Request Supervisor:</h4>
+            <input type="text" id="new-supervisor" class="form-control mb-2" placeholder="Enter new supervisor name">
+            <input type="text" id="new-supervisor-id" class="form-control mb-2 mt-2" placeholder="Enter supervisor ID">
+        </div>
+        <div id="submit-container" class="mt-4"></div>
+
+        <br>
+        <br>
+        <br>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            const dosenData = {
+                'GAT/MT': [
+                    { name: 'Boby Siswanto, S.T., M.T.', id: 'D5918' },
+                    { name: 'Mochammad Haldi Widianto, S.T., M.T.', id: 'D6184' },
+                    { name: 'Muhammad Maulana Ramadhan, S.Kom., M.Kom', id: 'D6469' }
+                ],
+                'IOT': [
+                    { name: 'Boby Siswanto, S.T., M.T.', id: 'D5918' },
+                    { name: 'Dr. Johan Muliadi Kerta, S.Kom., M.M.', id: 'D1749' },
+                    { name: 'Muhammad Maulana Ramadhan, S.Kom., M.Kom', id: 'D6469' },
+                    { name: 'Dr. Dany Eka Saputra, S.T., M.T.', id: 'D6407' },
+                    { name: 'Budi Juarto, S.T., M.Kom', id: 'D6670' }
+                ],
+                'SE/MAT': [
+                    { name: 'Dr. Evawaty Tanuar, S.Kom., M.Info.Tech', id: 'D3564' },
+                    { name: 'Husni Iskandar Pohan, S.Kom., M.T.', id: 'D6274' }
+                ],
+                'DS/AI/IS': [
+                    { name: 'Budi Juarto, S.T., M.Kom', id: 'D6670' },
+                    { name: 'Dr. Abdul Haris Rangkuti, S.Kom., M.M., M.Si.', id: 'D2211' },
+                    { name: 'Dr. Dani Suandi, S.Si., M.Si.', id: 'D6532' },
+                    { name: 'Dr. Dany Eka Saputra, S.T., M.T.', id: 'D6407' },
+                    { name: 'Ranny, S.Kom., M.Kom.', id: 'D6006' }
+                ],
+                'CS/NT': [
+                    { name: 'Dr. Johan Muliadi Kerta, S.Kom., M.M.', id: 'D1749' },
+                    { name: 'Mochammad Haldi Widianto, S.T., M.T.', id: 'D6184' }
+                ]
+            };
+
+            const classMapping = {
+                0: 'Data Science/Artificial Intelligence/Intelligence System',
+                1: 'Internet of Things',
+                2: 'Cyber Security/Network Technology',
+                3: 'Game Application Technology/Multimedia Technology',
+                4: 'Software Engineering/Mobile Application Technology'
+            };
+
+            $('#prediction-form').on('submit', function (e) {
+                e.preventDefault();
+
+                const title = $('#title').val();
+                const abstract = $('#abstract').val();
+                const combinedText = title + " " + abstract;
+
+                $.ajax({
+                    url: '/check_pending_status', // Endpoint untuk validasi status pending
+                    method: 'GET',
+                    success: function (data) {
+                        console.log("Server Response:", data); // Debug respon server
+                        if (data.status === 'pending') {
+                            console.log("Pending status detected"); // Debug: Status pending ditemukan
+                            alert("You already have a thesis submission with status 'Pending'. Please wait for approval or rejection before submitting again.");
+                        } else {
+                            console.log("No pending status, proceeding to prediction"); // Debug: Tidak ada pending, lanjut ke prediksi
+                            $.ajax({
+                                url: '/predict',
+                                method: 'POST',
+                                data: { text: combinedText },
+                                success: function (data) {
+                                    const predictedClass = data.class;
+                                    const probabilities = data.probabilities;
+                                    $('#result').html(
+                                        `<h3>Predicted Topic: ${predictedClass}</h3>
+                                        <br>
+                                        <h4>Topic Probabilities:</h4>
+                                        <ul>
+                                            ${Object.entries(probabilities).map(([classIndex, prob]) => 
+                                                `<li>${classMapping[classIndex]}: ${(prob * 100).toFixed(2)}%</li>`
+                                            ).join('')}
+                                        </ul>`
+                                    );
+            
+                                    $('#dosen-buttons').html('');
+                                    $('#request-container').addClass('hidden');
+                                    $('#submit-container').html('');
+                                    $('#slot-info-container').html('');
+            
+                                    if (dosenData[predictedClass]) {
+                                        $('#dosen-buttons').append('<h4>Supervisor Recommendation:</h4>');
+            
+                                        dosenData[predictedClass].forEach(dosen => {
+                                            $.ajax({
+                                                url: '/get_slot',
+                                                method: 'POST',
+                                                data: { supervisor_id: dosen.id },
+                                                success: function (slotData) {
+                                                    $('#dosen-buttons').append(
+                                                        `<button type="button" class="btn btn-outline-secondary m-1" id="${dosen.id}">
+                                                            ${dosen.name}
+                                                        </button>`
+                                                    );
+            
+                                                    $('#slot-info-container').append(
+                                                        `<div id="slot-info-${dosen.id}" class="mt-2">
+                                                            Slots remaining for ${dosen.name}: <span class="slot-count">${slotData.slot}</span>
+                                                        </div>`
+                                                    );
+                                                },
+                                                error: function () {
+                                                    alert('Error fetching slot data.');
+                                                }
+                                            });
+                                        });
+            
+                                        // Add request supervisor button
+                                        $('#dosen-buttons').append(
+                                            `<button type="button" id="request-supervisor" class="btn btn-secondary mt-2">
+                                                Request Supervisor
+                                            </button>`
+                                        );
+                                    } else {
+                                        $('#dosen-buttons').html('<p>No dosen available for this class.</p>');
+                                    }
+            
+                                    // Handle request supervisor button click
+                                    $('#dosen-buttons').on('click', '#request-supervisor', function () {
+                                        $('#request-container').removeClass('hidden');
+                                        $('#submit-container').html('<button type="button" id="submit-new-supervisor" class="btn btn-primary">Submit</button>');
+                                        // Ensure all dosen buttons are deactivated
+                                        $('#dosen-buttons').find('button').removeClass('btn-active');
+                                    });
+            
+                                    // Handle submit new supervisor
+                                    $('#submit-container').on('click', '#submit-new-supervisor', function () {
+                                        const newSupervisorName = $('#new-supervisor').val();
+                                        const newSupervisorId = $('#new-supervisor-id').val();
+                                        if (newSupervisorName && newSupervisorId) {
+                                            $.ajax({
+                                                url: '/save',
+                                                method: 'POST',
+                                                data: {
+                                                    title: title,
+                                                    abstract: abstract,
+                                                    supervisor: newSupervisorName,
+                                                    supervisor_id: newSupervisorId,
+                                                    topic: predictedClass
+                                                },
+                                                success: function () {
+                                                    alert('New supervisor requested successfully!');
+                                                    $('#title').val('');
+                                                    $('#abstract').val('');
+                                                    $('#result').html('');
+                                                    $('#new-supervisor').val('');
+                                                    $('#new-supervisor-id').val('');
+                                                    $('#request-container').addClass('hidden');
+                                                    $('#submit-container').html('');
+                                                    $('#dosen-buttons').html('');
+                                                    $('#slot-info-container').html('');
+                                                },
+                                                error: function () {
+                                                    alert('Error occurred while saving new supervisor.');
+                                                }
+                                            });
+                                        } else {
+                                            alert('Please enter both the name and ID for the new supervisor.');
+                                        }
+                                    });
+            
+                                    // Handle submit dosen
+                                    $('#submit-container').on('click', '#submit-dosen', function () {
+                                        const selectedDosen = $('#dosen-buttons').find('button.btn-active').text();
+                                        const selectedDosenId = $('#dosen-buttons').find('button.btn-active').attr('id');
+                                        if (selectedDosen) {
+                                            $.ajax({
+                                                url: '/save',
+                                                method: 'POST',
+                                                data: {
+                                                    title: title,
+                                                    abstract: abstract,
+                                                    supervisor: selectedDosen,
+                                                    supervisor_id: selectedDosenId,
+                                                    topic: predictedClass
+                                                },
+                                                success: function () {
+                                                    alert('Data saved successfully!');
+                                                    // Update slot count
+                                                    const activeSlotInfo = $(`#slot-info-${selectedDosenId}`);
+                                                    let currentSlot = parseInt(activeSlotInfo.find('.slot-count').text());
+                                                    activeSlotInfo.find('.slot-count').text(currentSlot - 1);
+                                                    // Clear form fields and result
+                                                    $('#title').val('');
+                                                    $('#abstract').val('');
+                                                    $('#result').html('');
+                                                    $('#dosen-buttons').html('');
+                                                    $('#request-container').addClass('hidden');
+                                                    $('#submit-container').html('');
+                                                    $('#slot-info-container').html('');
+                                                },
+                                                error: function () {
+                                                    alert('Error occurred while saving data.');
+                                                }
+                                            });
+                                        } else {
+                                            alert('Please select a dosen before submitting.');
+                                        }
+                                    });
+            
+                                    // Toggle button selection
+                                    $('#dosen-buttons').on('click', 'button', function () {
+                                        if ($(this).attr('id') === 'request-supervisor') {
+                                            $('#request-container').removeClass('hidden');
+                                            $('#submit-container').html('<button type="button" id="submit-new-supervisor" class="btn btn-primary">Submit</button>');
+                                        } else {
+                                            $('#request-container').addClass('hidden');
+                                            $('#submit-container').html('<button type="button" id="submit-dosen" class="btn btn-primary">Submit</button>');
+                                            // Ensure only one dosen button is active
+                                            $('#dosen-buttons').find('button').removeClass('btn-active');
+                                            $(this).addClass('btn-active');
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error Response:", xhr.responseText); // Debug respon error
+                        alert('Error checking pending status. Please try again later.');
+                    }
+                });
+                
+                
+            });
+        });
+
+        function confirmLogout() {
+            return confirm('Are you sure you want to logout?');
+        }
+    </script>
+</body>
+
+</html>

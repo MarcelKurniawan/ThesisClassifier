@@ -1,0 +1,6 @@
+Flask
+transformers
+torch
+nltk
+psycopg2-binary
+pyrebase4
