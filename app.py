@@ -9,8 +9,10 @@ import pyrebase
 from functools import wraps
 import csv
 from io import StringIO
-from functools import wraps
+import nltk
+nltk.download('stopwords')
 
+# Firebase configurations
 config = {
     'apiKey': 'AIzaSyBle1gLxLcBaPgLY4tPp76_ftxeag_nlwc',
     'authDomain': "classificationindobertproject.firebaseapp.com",
@@ -31,6 +33,7 @@ config_admin = {
     'appId': "1:308850144138:web:ef308dc77f23a677bcce73"
 }
 
+# Firebase initialization
 firebase = pyrebase.initialize_app(config)
 auths = firebase.auth()
 
@@ -44,21 +47,42 @@ app.secret_key = '1234'
 num_labels = 5
 
 # Load the model and tokenizer
-model_path = "C:/Users/Marcel/Documents/Skripsi/App/model/IndoBERT_Model.pth"
-model = AutoModelForSequenceClassification.from_pretrained("indolem/indobert-base-uncased", num_labels=num_labels)
-state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+model_path = "/workspaces/ThesisClassifier/model/IndoBERT_Model.pth"
+new_state_dict = {}  # Initialize new_state_dict to avoid reference errors
 
-# Renaming keys in the state dictionary
-new_state_dict = {}
-for key, value in state_dict.items():
-    if key == "linear.weight":
-        new_state_dict["classifier.weight"] = value
-    elif key == "linear.bias":
-        new_state_dict["classifier.bias"] = value
-    else:
-        new_state_dict[key] = value
+try:
+    # Load the model correctly
+    model = AutoModelForSequenceClassification.from_pretrained("indolem/indobert-base-uncased", num_labels=num_labels)
 
-model.load_state_dict(new_state_dict)
+    # Load state_dict and handle possible corruption issues
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    if not state_dict:
+        raise ValueError("state_dict is empty or corrupted.")
+
+    # Renaming keys in the state dictionary
+    for key, value in state_dict.items():
+        if key == "linear.weight":
+            new_state_dict["classifier.weight"] = value
+        elif key == "linear.bias":
+            new_state_dict["classifier.bias"] = value
+        else:
+            new_state_dict[key] = value
+
+    # Load the modified state dictionary into the model
+    model.load_state_dict(new_state_dict, strict=False)
+    model.eval()
+
+except Exception as e:
+    print(f"Error loading model: {e}")
+
+# Ensure the model is loaded correctly
+if new_state_dict:
+    try:
+        model.load_state_dict(new_state_dict)
+    except Exception as e:
+        print(f"Failed to load the model state dictionary: {e}")
+else:
+    print("Failed to load the model state dictionary.")
 
 tokenizer = AutoTokenizer.from_pretrained("indolem/indobert-base-uncased")
 
@@ -678,5 +702,5 @@ def update_reason():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(debug=False)
